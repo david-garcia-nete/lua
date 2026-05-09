@@ -1,5 +1,5 @@
 -- first_jam_midi.lua
--- Generates a 56-bar arrangement in A minor and exports both MIDI and MusicXML.
+-- Generates a 56-bar arrangement in A minor and exports MIDI.
 
 local TPQ = 480
 local BAR = TPQ * 4
@@ -76,9 +76,6 @@ local function varlen(value)
     return table.concat(out)
 end
 
-local function xml_escape(s)
-    return (s:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;"))
-end
 
 local function addNote(track, tick, note, duration, velocity)
     table.insert(track, {
@@ -271,105 +268,6 @@ function exportMidi(path)
     f:close()
 end
 
-local function note_to_step_alter_octave(note)
-    local names = {
-        [0] = {"C", 0}, {"C", 1}, {"D", 0}, {"D", 1}, {"E", 0}, {"F", 0},
-        {"F", 1}, {"G", 0}, {"G", 1}, {"A", 0}, {"A", 1}, {"B", 0}
-    }
-    local p = names[note % 12]
-    return p[1], p[2], math.floor(note / 12) - 1
-end
-
-local function events_by_bar(notes)
-    local map = {}
-    for i = 1, song.total_bars do map[i] = {} end
-    for _, n in ipairs(notes) do
-        local bar = math.floor(n.tick / BAR) + 1
-        if bar >= 1 and bar <= song.total_bars then
-            table.insert(map[bar], n)
-        end
-    end
-    for i = 1, song.total_bars do
-        table.sort(map[i], function(a, b) return a.tick < b.tick end)
-    end
-    return map
-end
-
-function exportMusicXml(path)
-    local divisions = 4
-    local ticks_per_division = TPQ / divisions
-    local parts = {
-        {id = "P1", name = "Drums", notes = song.tracks.drums, drum = true},
-        {id = "P2", name = "Bass", notes = song.tracks.bass},
-        {id = "P3", name = "Chords", notes = song.tracks.chords},
-        {id = "P4", name = "Melody", notes = song.tracks.melody},
-    }
-
-    local xml = {}
-    table.insert(xml, '<?xml version="1.0" encoding="UTF-8" standalone="no"?>')
-    table.insert(xml, '<score-partwise version="3.1">')
-    table.insert(xml, '<work><work-title>' .. xml_escape(song.title) .. '</work-title></work>')
-    table.insert(xml, '<part-list>')
-    for _, p in ipairs(parts) do
-        table.insert(xml, '<score-part id="' .. p.id .. '"><part-name>' .. p.name .. '</part-name></score-part>')
-    end
-    table.insert(xml, '</part-list>')
-
-    for _, part in ipairs(parts) do
-        table.insert(xml, '<part id="' .. part.id .. '">')
-        local by_bar = events_by_bar(part.notes)
-
-        for bar = 1, song.total_bars do
-            table.insert(xml, '<measure number="' .. bar .. '">')
-            if bar == 1 then
-                table.insert(xml, '<attributes>')
-                table.insert(xml, '<divisions>' .. divisions .. '</divisions>')
-                table.insert(xml, '<key><fifths>0</fifths><mode>minor</mode></key>')
-                table.insert(xml, '<time><beats>4</beats><beat-type>4</beat-type></time>')
-                table.insert(xml, '<clef><sign>G</sign><line>2</line></clef>')
-                table.insert(xml, '</attributes>')
-                table.insert(xml, '<direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>80</per-minute></metronome></direction-type><sound tempo="80"/></direction>')
-            end
-
-            local used = 0
-            for _, n in ipairs(by_bar[bar]) do
-                local offset = n.tick - (bar - 1) * BAR
-                local start_div = math.floor(offset / ticks_per_division)
-                local dur_div = math.max(1, math.floor(n.duration / ticks_per_division))
-                if start_div > used then
-                    local rest = start_div - used
-                    table.insert(xml, '<note><rest/><duration>' .. rest .. '</duration><type>quarter</type></note>')
-                end
-
-                local step, alter, octave = note_to_step_alter_octave(n.note)
-                table.insert(xml, '<note>')
-                table.insert(xml, '<pitch><step>' .. step .. '</step>' .. (alter == 1 and '<alter>1</alter>' or '') .. '<octave>' .. octave .. '</octave></pitch>')
-                table.insert(xml, '<duration>' .. dur_div .. '</duration>')
-                table.insert(xml, '<voice>1</voice>')
-                if part.drum then
-                    table.insert(xml, '<instrument id="' .. part.id .. '-I1"/>')
-                end
-                table.insert(xml, '</note>')
-                used = math.max(used, start_div + dur_div)
-            end
-            if used < 16 then
-                table.insert(xml, '<note><rest/><duration>' .. (16 - used) .. '</duration><type>quarter</type></note>')
-            end
-
-            table.insert(xml, '</measure>')
-        end
-
-        table.insert(xml, '</part>')
-    end
-
-    table.insert(xml, '</score-partwise>')
-
-    local f = assert(io.open(path, 'w'))
-    f:write(table.concat(xml, '\n'))
-    f:close()
-end
-
 buildArrangement()
 exportMidi("first_jam.mid")
-exportMusicXml("first_jam.musicxml")
-print("Success: generated first_jam.mid and first_jam.musicxml")
+print("Success: generated first_jam.mid")
