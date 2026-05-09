@@ -1,5 +1,5 @@
 -- first_jam_midi.lua
--- Generates a 56-bar arrangement in A minor and exports both MIDI and MusicXML.
+-- Generates a 56-bar arrangement in A minor and exports MIDI plus lightweight MusicXML notation.
 
 local TPQ = 480
 local BAR = TPQ * 4
@@ -299,10 +299,8 @@ function exportMusicXml(path)
     local divisions = 4
     local ticks_per_division = TPQ / divisions
     local parts = {
-        {id = "P1", name = "Drums", notes = song.tracks.drums, drum = true},
-        {id = "P2", name = "Bass", notes = song.tracks.bass},
-        {id = "P3", name = "Chords", notes = song.tracks.chords},
-        {id = "P4", name = "Melody", notes = song.tracks.melody},
+        {id = "P1", name = "Chords", notes = song.tracks.chords, clef = "G"},
+        {id = "P2", name = "Melody", notes = song.tracks.melody, clef = "G"},
     }
 
     local xml = {}
@@ -326,32 +324,47 @@ function exportMusicXml(path)
                 table.insert(xml, '<divisions>' .. divisions .. '</divisions>')
                 table.insert(xml, '<key><fifths>0</fifths><mode>minor</mode></key>')
                 table.insert(xml, '<time><beats>4</beats><beat-type>4</beat-type></time>')
-                table.insert(xml, '<clef><sign>G</sign><line>2</line></clef>')
+                table.insert(xml, '<clef><sign>' .. part.clef .. '</sign><line>2</line></clef>')
                 table.insert(xml, '</attributes>')
                 table.insert(xml, '<direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>80</per-minute></metronome></direction-type><sound tempo="80"/></direction>')
             end
 
             local used = 0
-            for _, n in ipairs(by_bar[bar]) do
+            local bar_notes = by_bar[bar]
+            local i = 1
+            while i <= #bar_notes do
+                local n = bar_notes[i]
                 local offset = n.tick - (bar - 1) * BAR
                 local start_div = math.floor(offset / ticks_per_division)
                 local dur_div = math.max(1, math.floor(n.duration / ticks_per_division))
+
                 if start_div > used then
                     local rest = start_div - used
                     table.insert(xml, '<note><rest/><duration>' .. rest .. '</duration><type>quarter</type></note>')
+                    used = start_div
                 end
 
-                local step, alter, octave = note_to_step_alter_octave(n.note)
-                table.insert(xml, '<note>')
-                table.insert(xml, '<pitch><step>' .. step .. '</step>' .. (alter == 1 and '<alter>1</alter>' or '') .. '<octave>' .. octave .. '</octave></pitch>')
-                table.insert(xml, '<duration>' .. dur_div .. '</duration>')
-                table.insert(xml, '<voice>1</voice>')
-                if part.drum then
-                    table.insert(xml, '<instrument id="' .. part.id .. '-I1"/>')
+                local chord_cluster = {n}
+                local j = i + 1
+                while j <= #bar_notes and bar_notes[j].tick == n.tick and bar_notes[j].duration == n.duration do
+                    table.insert(chord_cluster, bar_notes[j])
+                    j = j + 1
                 end
-                table.insert(xml, '</note>')
+
+                for k, cn in ipairs(chord_cluster) do
+                    local step, alter, octave = note_to_step_alter_octave(cn.note)
+                    table.insert(xml, '<note>')
+                    if k > 1 then table.insert(xml, '<chord/>') end
+                    table.insert(xml, '<pitch><step>' .. step .. '</step>' .. (alter == 1 and '<alter>1</alter>' or '') .. '<octave>' .. octave .. '</octave></pitch>')
+                    table.insert(xml, '<duration>' .. dur_div .. '</duration>')
+                    table.insert(xml, '<voice>1</voice>')
+                    table.insert(xml, '</note>')
+                end
+
                 used = math.max(used, start_div + dur_div)
+                i = j
             end
+
             if used < 16 then
                 table.insert(xml, '<note><rest/><duration>' .. (16 - used) .. '</duration><type>quarter</type></note>')
             end
@@ -365,7 +378,8 @@ function exportMusicXml(path)
     table.insert(xml, '</score-partwise>')
 
     local f = assert(io.open(path, 'w'))
-    f:write(table.concat(xml, '\n'))
+    f:write(table.concat(xml, '
+'))
     f:close()
 end
 
