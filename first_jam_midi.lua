@@ -378,8 +378,7 @@ function exportMusicXml(path)
     table.insert(xml, '</score-partwise>')
 
     local f = assert(io.open(path, 'w'))
-    f:write(table.concat(xml, '
-'))
+    f:write(table.concat(xml, '\n'))
     f:close()
 end
 
