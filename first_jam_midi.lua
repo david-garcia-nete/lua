@@ -244,7 +244,36 @@ local function build_track(name, channel, program, notes)
     return "MTrk" .. u32(#body) .. body
 end
 
-function exportMidi(path)
+local function clone_notes(notes)
+    local out = {}
+    for i, n in ipairs(notes) do
+        out[i] = {
+            tick = n.tick,
+            note = n.note,
+            duration = n.duration,
+            velocity = n.velocity,
+        }
+    end
+    return out
+end
+
+local function merge_notes(...)
+    local merged = {}
+    for i = 1, select("#", ...) do
+        local notes = select(i, ...)
+        for _, n in ipairs(notes) do
+            table.insert(merged, {
+                tick = n.tick,
+                note = n.note,
+                duration = n.duration,
+                velocity = n.velocity,
+            })
+        end
+    end
+    return merged
+end
+
+function exportMidi(path, piano_mode)
     local tempo_track = {}
     table.insert(tempo_track, meta_text(0, 0x03, "Tempo Map"))
     table.insert(tempo_track, varlen(0) .. bytes(0xFF, 0x51, 0x03, 0x0B, 0x71, 0xB0))
@@ -253,13 +282,18 @@ function exportMidi(path)
     table.insert(tempo_track, end_track(0))
     local tempo_body = table.concat(tempo_track)
 
-    local tracks = {
-        "MTrk" .. u32(#tempo_body) .. tempo_body,
-        build_track("Drums", 9, nil, song.tracks.drums),
-        build_track("Bass", 0, 38, song.tracks.bass),
-        build_track("Chords", 1, 0, song.tracks.chords),
-        build_track("Melody", 2, 80, song.tracks.melody),
-    }
+    local tracks = { "MTrk" .. u32(#tempo_body) .. tempo_body }
+
+    if piano_mode then
+        table.insert(tracks, build_track("Drums", 9, nil, song.tracks.drums))
+        table.insert(tracks, build_track("Piano LH", 0, 0, clone_notes(song.tracks.bass)))
+        table.insert(tracks, build_track("Piano RH", 1, 0, merge_notes(song.tracks.chords, song.tracks.melody)))
+    else
+        table.insert(tracks, build_track("Drums", 9, nil, song.tracks.drums))
+        table.insert(tracks, build_track("Bass", 0, 38, song.tracks.bass))
+        table.insert(tracks, build_track("Chords", 1, 0, song.tracks.chords))
+        table.insert(tracks, build_track("Melody", 2, 80, song.tracks.melody))
+    end
 
     local header = "MThd" .. u32(6) .. u16(1) .. u16(#tracks) .. u16(TPQ)
     local f = assert(io.open(path, "wb"))
@@ -268,6 +302,18 @@ function exportMidi(path)
     f:close()
 end
 
+local piano_mode = false
+for _, a in ipairs(arg or {}) do
+    if a == "--piano" then
+        piano_mode = true
+    end
+end
+
 buildArrangement()
-exportMidi("first_jam.mid")
-print("Success: generated first_jam.mid")
+if piano_mode then
+    exportMidi("first_jam_piano.mid", true)
+    print("Success: piano mode generated first_jam_piano.mid")
+else
+    exportMidi("first_jam.mid", false)
+    print("Success: normal mode generated first_jam.mid")
+end
