@@ -1,19 +1,49 @@
 -- first_jam_midi.lua
--- Generates a simple 16-bar MIDI song:
--- Drums + Bass + Chords in A minor
--- Tempo: 80 BPM
--- Progression: Am - F - C - G
+-- Generates a 56-bar arrangement in A minor and exports both MIDI and MusicXML.
 
-local TPQ = 480 -- ticks per quarter note
+local TPQ = 480
 local BAR = TPQ * 4
+local TOTAL_BARS = 56
+
+local song = {
+    title = "First Jam Arrangement",
+    tempo = 80,
+    time_signature = {4, 4},
+    key = "A minor",
+    total_bars = TOTAL_BARS,
+    progression_core = {"Am", "F", "C", "G"},
+    progression_bridge = {"F", "G", "Am", "Am"},
+    tracks = {
+        drums = {},
+        bass = {},
+        chords = {},
+        melody = {},
+    }
+}
+
+local chord_notes = {
+    Am = {57, 60, 64},
+    F = {53, 57, 60},
+    C = {60, 64, 67},
+    G = {55, 59, 62},
+}
+
+local bass_roots = { Am = 33, F = 29, C = 36, G = 31 }
+local bass_fifths = { Am = 40, F = 36, C = 43, G = 38 }
+
+local melody_phrase = {
+    {69, 72}, -- A4, C5
+    {67, 69}, -- G4, A4
+    {64, 67}, -- E4, G4
+    {62, 64}, -- D4, E4
+}
 
 local function bytes(...)
-    local t = {...}
-    local s = {}
-    for i, v in ipairs(t) do
-        s[i] = string.char(v)
+    local out = {}
+    for i, v in ipairs({...}) do
+        out[i] = string.char(v)
     end
-    return table.concat(s)
+    return table.concat(out)
 end
 
 local function u16(n)
@@ -32,7 +62,6 @@ end
 local function varlen(value)
     local buffer = value % 128
     value = math.floor(value / 128)
-
     while value > 0 do
         buffer = buffer * 256 + ((value % 128) + 128)
         value = math.floor(value / 128)
@@ -44,8 +73,141 @@ local function varlen(value)
         if buffer < 128 then break end
         buffer = math.floor(buffer / 256)
     end
-
     return table.concat(out)
+end
+
+local function xml_escape(s)
+    return (s:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;"))
+end
+
+local function addNote(track, tick, note, duration, velocity)
+    table.insert(track, {
+        tick = tick,
+        note = note,
+        duration = duration,
+        velocity = velocity or 90,
+    })
+end
+
+function addDrumPattern(bar_start, bars, level, fill_end)
+    for b = 0, bars - 1 do
+        local bar_index = bar_start + b
+        local base = (bar_index - 1) * BAR
+
+        local hat_velocity = ({light = 45, medium = 58, full = 70})[level] or 58
+        local kick_velocity = ({light = 80, medium = 95, full = 108})[level] or 95
+        local snare_velocity = ({light = 72, medium = 90, full = 100})[level] or 90
+
+        for i = 0, 7 do
+            addNote(song.tracks.drums, base + i * (TPQ / 2), 42, TPQ / 4, hat_velocity)
+        end
+
+        addNote(song.tracks.drums, base + 0 * TPQ, 36, TPQ / 2, kick_velocity)
+        addNote(song.tracks.drums, base + 2 * TPQ, 36, TPQ / 2, kick_velocity)
+
+        if level ~= "light" then
+            addNote(song.tracks.drums, base + 1.5 * TPQ, 36, TPQ / 4, kick_velocity - 10)
+        end
+
+        addNote(song.tracks.drums, base + 1 * TPQ, 38, TPQ / 2, snare_velocity)
+        addNote(song.tracks.drums, base + 3 * TPQ, 38, TPQ / 2, snare_velocity)
+
+        if fill_end and b == bars - 1 then
+            addNote(song.tracks.drums, base + 3 * TPQ, 38, TPQ / 4, 100)
+            addNote(song.tracks.drums, base + 3.25 * TPQ, 42, TPQ / 8, 90)
+            addNote(song.tracks.drums, base + 3.5 * TPQ, 46, TPQ / 8, 95)
+            addNote(song.tracks.drums, base + 3.75 * TPQ, 38, TPQ / 8, 110)
+        end
+    end
+end
+
+function addBassPattern(bar_start, bars, progression, style)
+    for b = 0, bars - 1 do
+        local chord = progression[(b % #progression) + 1]
+        local base = (bar_start + b - 1) * BAR
+        local root = bass_roots[chord]
+        local fifth = bass_fifths[chord]
+
+        if style == "sparse" then
+            addNote(song.tracks.bass, base, root, TPQ * 2, 86)
+            addNote(song.tracks.bass, base + TPQ * 2, fifth, TPQ * 2, 78)
+        elseif style == "active" then
+            addNote(song.tracks.bass, base, root, TPQ, 90)
+            addNote(song.tracks.bass, base + TPQ, fifth, TPQ, 82)
+            addNote(song.tracks.bass, base + TPQ * 2, root + 12, TPQ, 84)
+            addNote(song.tracks.bass, base + TPQ * 3, fifth, TPQ, 80)
+        else
+            addNote(song.tracks.bass, base, root, TPQ * 2, 92)
+            addNote(song.tracks.bass, base + TPQ * 2, fifth, TPQ, 86)
+            addNote(song.tracks.bass, base + TPQ * 3, root + 12, TPQ, 84)
+        end
+    end
+end
+
+function addChordPattern(bar_start, bars, progression, style)
+    for b = 0, bars - 1 do
+        local chord = progression[(b % #progression) + 1]
+        local base = (bar_start + b - 1) * BAR
+        local notes = chord_notes[chord]
+        local shift = (style == "high") and 12 or 0
+        local velocity = ({soft = 55, normal = 70, strong = 82})[style] or 70
+
+        for _, note in ipairs(notes) do
+            addNote(song.tracks.chords, base, note + shift, BAR, velocity)
+        end
+    end
+end
+
+function addMelodyPattern(bar_start, bars, doubled)
+    for b = 0, bars - 1 do
+        local phrase = melody_phrase[(b % 4) + 1]
+        local base = (bar_start + b - 1) * BAR
+
+        addNote(song.tracks.melody, base, phrase[1], TPQ, 90)
+        addNote(song.tracks.melody, base + TPQ * 2, phrase[2], TPQ, 90)
+
+        if doubled then
+            addNote(song.tracks.melody, base, phrase[1] + 12, TPQ, 72)
+            addNote(song.tracks.melody, base + TPQ * 2, phrase[2] + 12, TPQ, 72)
+        end
+    end
+end
+
+local function buildArrangement()
+    addDrumPattern(1, 4, "light", false)
+
+    addDrumPattern(5, 8, "medium", false)
+    addBassPattern(5, 8, song.progression_core, "sparse")
+    addChordPattern(9, 4, song.progression_core, "soft")
+
+    addDrumPattern(13, 8, "full", false)
+    addBassPattern(13, 8, song.progression_core, "normal")
+    addChordPattern(13, 8, song.progression_core, "normal")
+    addMelodyPattern(13, 8, false)
+
+    addDrumPattern(21, 8, "medium", false)
+    addBassPattern(21, 8, song.progression_core, "active")
+    addChordPattern(21, 8, song.progression_core, "soft")
+
+    addDrumPattern(29, 4, "full", true)
+    addDrumPattern(33, 4, "full", true)
+    addBassPattern(29, 8, song.progression_core, "active")
+    addChordPattern(29, 8, song.progression_core, "high")
+    addMelodyPattern(29, 8, true)
+
+    addDrumPattern(37, 8, "light", false)
+    addBassPattern(37, 8, song.progression_bridge, "sparse")
+    addChordPattern(37, 8, song.progression_bridge, "soft")
+
+    addDrumPattern(45, 4, "full", false)
+    addDrumPattern(49, 4, "full", true)
+    addBassPattern(45, 8, song.progression_core, "active")
+    addChordPattern(45, 8, song.progression_core, "strong")
+    addMelodyPattern(45, 8, true)
+
+    addDrumPattern(53, 4, "light", false)
+    addBassPattern(53, 4, {"Am", "Am", "Am", "Am"}, "sparse")
+    addChordPattern(53, 4, {"Am", "Am", "Am", "Am"}, "soft")
 end
 
 local function meta_text(delta, meta_type, text)
@@ -56,186 +218,158 @@ local function end_track(delta)
     return varlen(delta) .. bytes(0xFF, 0x2F, 0x00)
 end
 
-local function midi_event(delta, status, data1, data2)
-    if data2 == nil then
-        return varlen(delta) .. bytes(status, data1)
-    end
-    return varlen(delta) .. bytes(status, data1, data2)
-end
-
-local function note_events(events, start_tick, channel, note, duration, velocity)
-    table.insert(events, {
-        tick = start_tick,
-        order = 2,
-        data = bytes(0x90 + channel, note, velocity)
-    })
-
-    table.insert(events, {
-        tick = start_tick + duration,
-        order = 1,
-        data = bytes(0x80 + channel, note, 0)
-    })
-end
-
 local function build_track(name, channel, program, notes)
     local events = {}
-
-    local data = {}
-    table.insert(data, meta_text(0, 0x03, name))
+    local data = {meta_text(0, 0x03, name)}
 
     if program ~= nil then
-        table.insert(events, {
-            tick = 0,
-            order = 0,
-            data = bytes(0xC0 + channel, program)
-        })
+        table.insert(events, {tick = 0, order = 0, data = bytes(0xC0 + channel, program)})
     end
 
     for _, n in ipairs(notes) do
-        note_events(events, n.tick, channel, n.note, n.duration, n.velocity or 90)
+        table.insert(events, {tick = n.tick, order = 2, data = bytes(0x90 + channel, n.note, n.velocity)})
+        table.insert(events, {tick = n.tick + n.duration, order = 1, data = bytes(0x80 + channel, n.note, 0)})
     end
 
     table.sort(events, function(a, b)
-        if a.tick == b.tick then
-            return a.order < b.order
-        end
+        if a.tick == b.tick then return a.order < b.order end
         return a.tick < b.tick
     end)
 
     local last_tick = 0
     for _, e in ipairs(events) do
-        local delta = e.tick - last_tick
-        table.insert(data, varlen(delta) .. e.data)
+        table.insert(data, varlen(e.tick - last_tick) .. e.data)
         last_tick = e.tick
     end
 
     table.insert(data, end_track(0))
-
     local body = table.concat(data)
     return "MTrk" .. u32(#body) .. body
 end
 
-local function build_tempo_track()
-    local data = {}
+function exportMidi(path)
+    local tempo_track = {}
+    table.insert(tempo_track, meta_text(0, 0x03, "Tempo Map"))
+    table.insert(tempo_track, varlen(0) .. bytes(0xFF, 0x51, 0x03, 0x0B, 0x71, 0xB0))
+    table.insert(tempo_track, varlen(0) .. bytes(0xFF, 0x58, 0x04, 0x04, 0x02, 0x18, 0x08))
+    table.insert(tempo_track, varlen(0) .. bytes(0xFF, 0x59, 0x02, 0x00, 0x00))
+    table.insert(tempo_track, end_track(0))
+    local tempo_body = table.concat(tempo_track)
 
-    table.insert(data, meta_text(0, 0x03, "Tempo Map"))
+    local tracks = {
+        "MTrk" .. u32(#tempo_body) .. tempo_body,
+        build_track("Drums", 9, nil, song.tracks.drums),
+        build_track("Bass", 0, 38, song.tracks.bass),
+        build_track("Chords", 1, 0, song.tracks.chords),
+        build_track("Melody", 2, 80, song.tracks.melody),
+    }
 
-    -- 80 BPM = 750,000 microseconds per quarter note
-    table.insert(data, varlen(0) .. bytes(0xFF, 0x51, 0x03, 0x0B, 0x71, 0xB0))
-
-    -- 4/4 time signature
-    table.insert(data, varlen(0) .. bytes(0xFF, 0x58, 0x04, 0x04, 0x02, 0x18, 0x08))
-
-    table.insert(data, end_track(0))
-
-    local body = table.concat(data)
-    return "MTrk" .. u32(#body) .. body
+    local header = "MThd" .. u32(6) .. u16(1) .. u16(#tracks) .. u16(TPQ)
+    local f = assert(io.open(path, "wb"))
+    f:write(header)
+    for _, t in ipairs(tracks) do f:write(t) end
+    f:close()
 end
 
-local drums = {}
-local bass = {}
-local chords = {}
-local melody = {}
+local function note_to_step_alter_octave(note)
+    local names = {
+        [0] = {"C", 0}, {"C", 1}, {"D", 0}, {"D", 1}, {"E", 0}, {"F", 0},
+        {"F", 1}, {"G", 0}, {"G", 1}, {"A", 0}, {"A", 1}, {"B", 0}
+    }
+    local p = names[note % 12]
+    return p[1], p[2], math.floor(note / 12) - 1
+end
 
--- MIDI note numbers:
--- Drums, General MIDI: Kick 36, Snare 38, Closed Hat 42
--- Bass: A1 33, F1 29, C2 36, G1 31, E2 40, G2 43, D2 38
--- Chords: A3 57, C4 60, E4 64, F3 53, G3 55, B3 59, D4 62, G4 67
+local function events_by_bar(notes)
+    local map = {}
+    for i = 1, song.total_bars do map[i] = {} end
+    for _, n in ipairs(notes) do
+        local bar = math.floor(n.tick / BAR) + 1
+        if bar >= 1 and bar <= song.total_bars then
+            table.insert(map[bar], n)
+        end
+    end
+    for i = 1, song.total_bars do
+        table.sort(map[i], function(a, b) return a.tick < b.tick end)
+    end
+    return map
+end
 
-for bar = 0, 15 do
-    local base = bar * BAR
+function exportMusicXml(path)
+    local divisions = 4
+    local ticks_per_division = TPQ / divisions
+    local parts = {
+        {id = "P1", name = "Drums", notes = song.tracks.drums, drum = true},
+        {id = "P2", name = "Bass", notes = song.tracks.bass},
+        {id = "P3", name = "Chords", notes = song.tracks.chords},
+        {id = "P4", name = "Melody", notes = song.tracks.melody},
+    }
 
-    -- Hi-hat every eighth note
-    for i = 0, 7 do
-        table.insert(drums, {
-            tick = base + i * (TPQ / 2),
-            note = 42,
-            duration = TPQ / 4,
-            velocity = 60
-        })
+    local xml = {}
+    table.insert(xml, '<?xml version="1.0" encoding="UTF-8" standalone="no"?>')
+    table.insert(xml, '<score-partwise version="3.1">')
+    table.insert(xml, '<work><work-title>' .. xml_escape(song.title) .. '</work-title></work>')
+    table.insert(xml, '<part-list>')
+    for _, p in ipairs(parts) do
+        table.insert(xml, '<score-part id="' .. p.id .. '"><part-name>' .. p.name .. '</part-name></score-part>')
+    end
+    table.insert(xml, '</part-list>')
+
+    for _, part in ipairs(parts) do
+        table.insert(xml, '<part id="' .. part.id .. '">')
+        local by_bar = events_by_bar(part.notes)
+
+        for bar = 1, song.total_bars do
+            table.insert(xml, '<measure number="' .. bar .. '">')
+            if bar == 1 then
+                table.insert(xml, '<attributes>')
+                table.insert(xml, '<divisions>' .. divisions .. '</divisions>')
+                table.insert(xml, '<key><fifths>0</fifths><mode>minor</mode></key>')
+                table.insert(xml, '<time><beats>4</beats><beat-type>4</beat-type></time>')
+                table.insert(xml, '<clef><sign>G</sign><line>2</line></clef>')
+                table.insert(xml, '</attributes>')
+                table.insert(xml, '<direction placement="above"><direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>80</per-minute></metronome></direction-type><sound tempo="80"/></direction>')
+            end
+
+            local used = 0
+            for _, n in ipairs(by_bar[bar]) do
+                local offset = n.tick - (bar - 1) * BAR
+                local start_div = math.floor(offset / ticks_per_division)
+                local dur_div = math.max(1, math.floor(n.duration / ticks_per_division))
+                if start_div > used then
+                    local rest = start_div - used
+                    table.insert(xml, '<note><rest/><duration>' .. rest .. '</duration><type>quarter</type></note>')
+                end
+
+                local step, alter, octave = note_to_step_alter_octave(n.note)
+                table.insert(xml, '<note>')
+                table.insert(xml, '<pitch><step>' .. step .. '</step>' .. (alter == 1 and '<alter>1</alter>' or '') .. '<octave>' .. octave .. '</octave></pitch>')
+                table.insert(xml, '<duration>' .. dur_div .. '</duration>')
+                table.insert(xml, '<voice>1</voice>')
+                if part.drum then
+                    table.insert(xml, '<instrument id="' .. part.id .. '-I1"/>')
+                end
+                table.insert(xml, '</note>')
+                used = math.max(used, start_div + dur_div)
+            end
+            if used < 16 then
+                table.insert(xml, '<note><rest/><duration>' .. (16 - used) .. '</duration><type>quarter</type></note>')
+            end
+
+            table.insert(xml, '</measure>')
+        end
+
+        table.insert(xml, '</part>')
     end
 
-    -- Kick on beats 1 and 3
-    table.insert(drums, { tick = base + 0 * TPQ, note = 36, duration = TPQ / 2, velocity = 100 })
-    table.insert(drums, { tick = base + 2 * TPQ, note = 36, duration = TPQ / 2, velocity = 100 })
+    table.insert(xml, '</score-partwise>')
 
-    -- Snare on beats 2 and 4
-    table.insert(drums, { tick = base + 1 * TPQ, note = 38, duration = TPQ / 2, velocity = 95 })
-    table.insert(drums, { tick = base + 3 * TPQ, note = 38, duration = TPQ / 2, velocity = 95 })
-
-    -- Small variation every fourth bar
-    if (bar + 1) % 4 == 0 then
-        table.insert(drums, { tick = base + 2.5 * TPQ, note = 36, duration = TPQ / 2, velocity = 90 })
-    end
+    local f = assert(io.open(path, 'w'))
+    f:write(table.concat(xml, '\n'))
+    f:close()
 end
 
-local bass_pattern = {
-    { root = 33, fifth = 40 }, -- Am: A1, E2
-    { root = 29, fifth = 36 }, -- F: F1, C2
-    { root = 36, fifth = 43 }, -- C: C2, G2
-    { root = 31, fifth = 38 }, -- G: G1, D2
-}
-
-for bar = 4, 15 do
-    local p = bass_pattern[(bar % 4) + 1]
-    local base = bar * BAR
-
-    table.insert(bass, { tick = base, note = p.root, duration = TPQ * 2, velocity = 90 })
-    table.insert(bass, { tick = base + TPQ * 2, note = p.fifth, duration = TPQ * 2, velocity = 80 })
-end
-
-local chord_pattern = {
-    {57, 60, 64}, -- Am: A3 C4 E4
-    {53, 57, 60}, -- F: F3 A3 C4
-    {60, 64, 67}, -- C: C4 E4 G4
-    {55, 59, 62}, -- G: G3 B3 D4
-}
-
-for bar = 8, 15 do
-    local notes = chord_pattern[(bar % 4) + 1]
-    local base = bar * BAR
-
-    for _, note in ipairs(notes) do
-        table.insert(chords, {
-            tick = base,
-            note = note,
-            duration = BAR,
-            velocity = 70
-        })
-    end
-end
-
--- Simple melody enters in bars 13-16
-local melody_pattern = {
-    {69, 72}, -- A4, C5
-    {67, 69}, -- G4, A4
-    {64, 67}, -- E4, G4
-    {62, 64}, -- D4, E4
-}
-
-for bar = 12, 15 do
-    local notes = melody_pattern[(bar % 4) + 1]
-    local base = bar * BAR
-
-    table.insert(melody, { tick = base, note = notes[1], duration = TPQ, velocity = 85 })
-    table.insert(melody, { tick = base + TPQ * 2, note = notes[2], duration = TPQ, velocity = 85 })
-end
-
-local tracks = {
-    build_tempo_track(),
-    build_track("Drums", 9, nil, drums),       -- Channel 10 in MIDI terms
-    build_track("Bass", 0, 38, bass),         -- Synth bass
-    build_track("Chords", 1, 0, chords),      -- Piano
-    build_track("Melody", 2, 80, melody),     -- Lead synth
-}
-
-local header = "MThd" .. u32(6) .. u16(1) .. u16(#tracks) .. u16(TPQ)
-
-local file = assert(io.open("first_jam.mid", "wb"))
-file:write(header)
-for _, track in ipairs(tracks) do
-    file:write(track)
-end
-file:close()
-
-print("Created first_jam.mid")
+buildArrangement()
+exportMidi("first_jam.mid")
+exportMusicXml("first_jam.musicxml")
+print("Success: generated first_jam.mid and first_jam.musicxml")
