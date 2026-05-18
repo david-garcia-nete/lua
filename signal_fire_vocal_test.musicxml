@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE score-partwise PUBLIC
+    "-//Recordare//DTD MusicXML 4.0 Partwise//EN"
+    "http://www.musicxml.org/dtds/partwise.dtd">
+<score-partwise version="4.0">
+  <work>
+    <work-title>Signal Fire Vocal Test</work-title>
+  </work>
+  <identification>
+    <creator type="composer">ChatGPT</creator>
+    <encoding>
+      <software>OpenAI GPT-5.3-Codex</software>
+      <encoding-date>2026-05-18</encoding-date>
+    </encoding>
+  </identification>
+
+  <part-list>
+    <score-part id="P1">
+      <part-name>Voice</part-name>
+    </score-part>
+  </part-list>
+
+  <part id="P1">
+    <!-- Measure 1 -->
+    <measure number="1">
+      <attributes>
+        <divisions>1</divisions>
+        <key>
+          <fifths>0</fifths>
+          <mode>minor</mode>
+        </key>
+        <time>
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+        </time>
+        <clef>
+          <sign>G</sign>
+          <line>2</line>
+        </clef>
+      </attributes>
+      <direction placement="above">
+        <direction-type>
+          <metronome>
+            <beat-unit>quarter</beat-unit>
+            <per-minute>82</per-minute>
+          </metronome>
+        </direction-type>
+        <sound tempo="82"/>
+      </direction>
+
+      <note>
+        <pitch><step>A</step><octave>3</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>Sig-</text></lyric>
+      </note>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>nal</text></lyric>
+      </note>
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>fire</text></lyric>
+      </note>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>in</text></lyric>
+      </note>
+    </measure>
+
+    <!-- Measure 2 -->
+    <measure number="2">
+      <note>
+        <pitch><step>B</step><octave>3</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>the</text></lyric>
+      </note>
+      <note>
+        <pitch><step>A</step><octave>3</octave></pitch>
+        <duration>2</duration>
+        <type>half</type>
+        <lyric><syllabic>single</syllabic><text>rain</text></lyric>
+      </note>
+      <note>
+        <rest/>
+        <duration>1</duration>
+        <type>quarter</type>
+      </note>
+    </measure>
+
+    <!-- Measure 3 -->
+    <measure number="3">
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>Call-</text></lyric>
+      </note>
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>ing</text></lyric>
+      </note>
+      <note>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>through</text></lyric>
+      </note>
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>the</text></lyric>
+      </note>
+    </measure>
+
+    <!-- Measure 4 -->
+    <measure number="4">
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>2</duration>
+        <type>half</type>
+        <lyric><syllabic>single</syllabic><text>night</text></lyric>
+      </note>
+      <note>
+        <pitch><step>B</step><octave>3</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>a-</text></lyric>
+      </note>
+      <note>
+        <pitch><step>A</step><octave>3</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>gain</text></lyric>
+      </note>
+    </measure>
+
+    <!-- Measure 5 -->
+    <measure number="5">
+      <note>
+        <pitch><step>A</step><octave>3</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>Hold</text></lyric>
+      </note>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>it</text></lyric>
+      </note>
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>2</duration>
+        <type>half</type>
+        <lyric><syllabic>single</syllabic><text>high,</text></lyric>
+      </note>
+    </measure>
+
+    <!-- Measure 6 -->
+    <measure number="6">
+      <note>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>let</text></lyric>
+      </note>
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>it</text></lyric>
+      </note>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>2</duration>
+        <type>half</type>
+        <lyric><syllabic>single</syllabic><text>shine</text></lyric>
+      </note>
+    </measure>
+
+    <!-- Measure 7 -->
+    <measure number="7">
+      <note>
+        <pitch><step>B</step><octave>3</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>I</text></lyric>
+      </note>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>can</text></lyric>
+      </note>
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>see</text></lyric>
+      </note>
+      <note>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>your</text></lyric>
+      </note>
+    </measure>
+
+    <!-- Measure 8 -->
+    <measure number="8">
+      <note>
+        <pitch><step>D</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>light</text></lyric>
+      </note>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>1</duration>
+        <type>quarter</type>
+        <lyric><syllabic>single</syllabic><text>from</text></lyric>
+      </note>
+      <note>
+        <pitch><step>B</step><octave>3</octave></pitch>
+        <duration>2</duration>
+        <type>half</type>
+        <lyric><syllabic>single</syllabic><text>mine</text></lyric>
+      </note>
+      <barline location="right">
+        <bar-style>light-heavy</bar-style>
+      </barline>
+    </measure>
+  </part>
+</score-partwise>
