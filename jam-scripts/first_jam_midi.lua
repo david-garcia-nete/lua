@@ -76,7 +76,6 @@ local function varlen(value)
     return table.concat(out)
 end
 
-
 local function addNote(track, tick, note, duration, velocity)
     table.insert(track, {
         tick = tick,
@@ -86,7 +85,7 @@ local function addNote(track, tick, note, duration, velocity)
     })
 end
 
-function addDrumPattern(bar_start, bars, level, fill_end)
+local function addDrumPattern(bar_start, bars, level, fill_end)
     for b = 0, bars - 1 do
         local bar_index = bar_start + b
         local base = (bar_index - 1) * BAR
@@ -118,7 +117,7 @@ function addDrumPattern(bar_start, bars, level, fill_end)
     end
 end
 
-function addBassPattern(bar_start, bars, progression, style)
+local function addBassPattern(bar_start, bars, progression, style)
     for b = 0, bars - 1 do
         local chord = progression[(b % #progression) + 1]
         local base = (bar_start + b - 1) * BAR
@@ -141,7 +140,7 @@ function addBassPattern(bar_start, bars, progression, style)
     end
 end
 
-function addChordPattern(bar_start, bars, progression, style)
+local function addChordPattern(bar_start, bars, progression, style)
     for b = 0, bars - 1 do
         local chord = progression[(b % #progression) + 1]
         local base = (bar_start + b - 1) * BAR
@@ -155,7 +154,7 @@ function addChordPattern(bar_start, bars, progression, style)
     end
 end
 
-function addMelodyPattern(bar_start, bars, doubled)
+local function addMelodyPattern(bar_start, bars, doubled)
     for b = 0, bars - 1 do
         local phrase = melody_phrase[(b % 4) + 1]
         local base = (bar_start + b - 1) * BAR
@@ -244,7 +243,7 @@ local function build_track(name, channel, program, notes)
     return "MTrk" .. u32(#body) .. body
 end
 
-function exportMidi(path)
+local function exportMidi(path)
     local tempo_track = {}
     table.insert(tempo_track, meta_text(0, 0x03, "Tempo Map"))
     table.insert(tempo_track, varlen(0) .. bytes(0xFF, 0x51, 0x03, 0x0B, 0x71, 0xB0))
@@ -268,6 +267,7 @@ function exportMidi(path)
     f:close()
 end
 
+os.execute("mkdir -p jams/first-jam")
 buildArrangement()
-exportMidi("first_jam.mid")
-print("Success: generated first_jam.mid")
+exportMidi("jams/first-jam/first_jam.mid")
+print("Success: generated jams/first-jam/first_jam.mid")
