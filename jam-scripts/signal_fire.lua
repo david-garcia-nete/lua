@@ -85,7 +85,7 @@ end
 local function meta_text(delta,t,text) return varlen(delta)..bytes(0xFF,t,#text)..text end
 local function end_track() return varlen(0)..bytes(0xFF,0x2F,0x00) end
 local function build_track(name,ch,program,notes)
-  local ev={}, data={meta_text(0,0x03,name)}
+local ev, data = {}, {meta_text(0,0x03,name)}
   if program~=nil then ev[#ev+1]={tick=0,o=0,d=bytes(0xC0+ch,program)} end
   for _,n in ipairs(notes) do ev[#ev+1]={tick=n.tick,o=2,d=bytes(0x90+ch,n.n,n.v)}; ev[#ev+1]={tick=n.tick+n.d,o=1,d=bytes(0x80+ch,n.n,0)} end
   table.sort(ev,function(x,y) if x.tick==y.tick then return x.o<y.o end return x.tick<y.tick end)
