@@ -1,0 +1,16 @@
+Piano unified fixed-clefs report
+================================
+Source MXL: /workspace/lua/seeing-red/xml/piano-others-seeing-red-clean-version-43631578-2unifiedmscx-davidgarciane.mxl
+Score XML member read: score.xml
+Output MusicXML: /workspace/lua/seeing-red/generated/piano_unified_fixed_clefs.musicxml
+
+Clef elements found: 119
+Clef elements removed: 119
+Opening treble clef: inserted/replaced as opening staff 1 treble clef.
+Opening bass clef: preserved as opening staff 2 bass clef.
+
+Assumptions made:
+- The MXL container's rootfile is the score to clean.
+- The score is a single piano grand-staff part where staff 1 should remain treble and staff 2 should remain bass throughout.
+- Clef elements are notation metadata here; removing mid-score clefs and inserting fixed opening clefs does not transpose notes or alter playback timing.
+- All non-clef MusicXML content is left intact, including pitches, durations, voices, staff assignments, measures, directions, and playback-related data.
