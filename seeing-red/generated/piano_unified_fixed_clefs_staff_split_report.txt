@@ -1,0 +1,13 @@
+Piano fixed-clef staff split report
+===================================
+Input MusicXML: /workspace/lua/seeing-red/generated/piano_unified_fixed_clefs.musicxml
+Output MusicXML: /workspace/lua/seeing-red/generated/piano_unified_fixed_clefs_staff_split.musicxml
+Split point: C4 / Middle C (notes below C4 -> staff 2; notes C4 and above -> staff 1)
+
+Notes moved from treble to bass: 226
+Notes moved from bass to treble: 217
+Lowest note remaining on treble staff: C4
+Highest note remaining on bass staff: B3
+
+Notes skipped and why:
+- None
