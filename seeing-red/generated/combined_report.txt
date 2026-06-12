@@ -1,0 +1,45 @@
+Seeing Red combined-score generation report
+============================================
+
+Implementation plan executed:
+1. Read source files from seeing-red/midi/ and seeing-red/xml/ without modifying them.
+2. Generated one experimental combined score from MIDI timing.
+3. Generated one experimental combined score from MusicXML timing without vocal scaling.
+4. Padded shorter XML parts with rests to match the longest XML part.
+
+Generated files:
+- generated/combined_from_midi.musicxml
+- generated/combined_from_xml.musicxml
+- generated/combined_report.txt
+
+Source files used:
+- Bass: midi/Bass-Seeing Red Clean Version-43631578.mid; xml/Bass-Seeing Red Clean Version-43631578.musicxml
+- Drums: midi/Drums-Seeing Red Clean Version-43631578.mid; xml/Drums-Seeing Red Clean Version-43631578.musicxml
+- Piano/Others: midi/Piano-Others-Seeing Red Clean Version-43631578 (1).mid; xml/Piano-Others-Seeing Red Clean Version-43631578.musicxml
+- Vocal: midi/Vocal-Seeing Red Clean Version-43631578 (1).mid; xml/Vocal-Seeing Red Clean Version-43631578 (1).musicxml
+
+MIDI timing source durations:
+- Bass: 489670 ticks at PPQ 960; 510.072916667 quarter notes; 255.036458333 seconds at 120 BPM; 648 parsed notes; MIDI-score rest padding to longest part: 226.010416667 quarter notes.
+- Drums: 522022 ticks at PPQ 1024; 509.787109375 quarter notes; 254.893554688 seconds at 120 BPM; 1680 parsed notes; MIDI-score rest padding to longest part: 226.296223958 quarter notes.
+- Piano/Others: 706640 ticks at PPQ 960; 736.083333333 quarter notes; 368.041666667 seconds at 120 BPM; 1055 parsed notes; MIDI-score rest padding to longest part: 0.000000000 quarter notes.
+- Vocal: 482179 ticks at PPQ 960; 502.269791667 quarter notes; 251.134895833 seconds at 120 BPM; 279 parsed notes; MIDI-score rest padding to longest part: 233.813541667 quarter notes.
+
+MusicXML timing source durations and padding:
+- Bass: 107 source measures; 428.000000000 quarter notes; padding added: 34 measures / 136.000000000 quarter notes.
+- Drums: 97 source measures; 388.000000000 quarter notes; padding added: 44 measures / 176.000000000 quarter notes.
+- Piano/Others: 141 source measures; 564.000000000 quarter notes; padding added: 0 measures / 0.000000000 quarter notes.
+- Vocal: 78 source measures; 312.000000000 quarter notes; padding added: 63 measures / 252.000000000 quarter notes.
+
+Alignment risks:
+- The MIDI-derived score preserves tick timing with exact integer MusicXML divisions, but it is an experimental cleanup score: overlapping material is converted into time slices/chords and may need re-notation in MuseScore.
+- The MIDI files do not all end at the same time. Bass, Drums, and Vocal are close, while Piano/Others is much longer; shorter MIDI parts therefore receive trailing rests in the generated score.
+- The XML-derived score intentionally does not scale the vocal part. It preserves each source part's notation and appends rests, so endings align but internal musical sections may still not correspond if the source files came from different exports or arrangements.
+- The XML source files have different measure counts and durations before padding, so a combined score produced from them should be treated as a layout/cleanup starting point rather than proof of musical alignment.
+
+Recommendation for MuseScore cleanup:
+- The MIDI-based combined score is likely the better starting point if playback/timing alignment is the priority, because it uses the MIDI files as a shared tick-based timing source.
+- The XML-based combined score is likely the better starting point if preserving existing notation is the priority, but it carries higher alignment risk because the source XML durations differ substantially and padding only fixes the final barline alignment.
+- No vocal-duration scaling was applied or recommended by this generation step.
+
+Dependency note:
+- music21 was preferred, but it was not available in this environment. The script uses a dependency-free MIDI parser instead. If future MIDI import requires more expressive quantization or percussion mapping, replacing the parser with mido or pretty_midi would be the most direct alternative.
