@@ -1,0 +1,21 @@
+Bass tablature generation report
+=================================
+Source: seeing-red/xml/seeing-red-midi.mxl
+Output: seeing-red/generated/seeing-red-midi-with-bass-tab.musicxml
+
+Identified part P4 (Electric Bass) as the electric bass part.
+
+Bass notation staff: part P4 staff 1 (bass clef).
+Bass tab staff: part P4 staff 2 (TAB clef; previously full-measure rests only).
+Bass notes converted to tab: 758
+Lowest bass note found: written E2, sounding E1.
+Highest bass note found: written C4, sounding C3.
+Notes that could not be converted:
+- None
+Assumptions made:
+- The single part named Electric Bass with staff 1 in bass clef and staff 2 in TAB clef is the target part.
+- Staff 2 was considered empty because it contained only rests before conversion.
+- Existing bass transposition octave-change=-1 was applied when mapping written notes to sounding standard bass tuning.
+- MusicXML technical string numbers are 1=G, 2=D, 3=A, 4=E for this 4-string bass.
+- Frets 0-12 were preferred; higher frets up to 24 would be used only if necessary.
+- Rhythm, note durations, ties, rests, voices, and playback pitches were copied from the notation staff to the tab staff.
