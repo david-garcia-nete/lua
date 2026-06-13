@@ -13,8 +13,8 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 SOURCE = Path("seeing-red/xml/seeing-red-midi.mxl")
-OUTPUT = Path("seeing-red/generated/seeing-red-midi-with-bass-tab.musicxml")
-REPORT = Path("seeing-red/generated/seeing-red-midi-with-bass-tab-report.txt")
+OUTPUT = Path("seeing-red/generated/seeing-red-midi-with-bass-tab-fixed.musicxml")
+REPORT = Path("seeing-red/generated/seeing-red-midi-with-bass-tab-fixed-report.txt")
 
 STEP_TO_SEMITONE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 SEMITONE_TO_NAME = {
@@ -238,6 +238,10 @@ def set_staff_and_voice(note: ET.Element, staff: str, voice: str) -> None:
     replace_or_append_text(note, "staff", staff)
 
 
+def note_voice(note: ET.Element) -> str:
+    return child_text(note, "voice", "1") or "1"
+
+
 def add_technical(note: ET.Element, string_number: int, fret: int) -> None:
     notations = child(note, "notations")
     if notations is None:
@@ -258,11 +262,20 @@ def add_technical(note: ET.Element, string_number: int, fret: int) -> None:
     technical.append(fret_elem)
 
 
-def convert_source_item(item: ET.Element, measure: ET.Element, octave_change: int, issues: list[ConversionIssue], stats: dict[str, object]) -> ET.Element:
+def convert_source_item(
+    item: ET.Element,
+    measure: ET.Element,
+    octave_change: int,
+    issues: list[ConversionIssue],
+    stats: dict[str, object],
+    voice_map: dict[str, str],
+) -> ET.Element:
     tab_item = copy.deepcopy(item)
     if local_name(tab_item.tag) != "note":
         return tab_item
-    set_staff_and_voice(tab_item, "2", "5")
+    source_voice = note_voice(tab_item)
+    tab_voice = voice_map.setdefault(source_voice, str(4 + len(voice_map) + 1))
+    set_staff_and_voice(tab_item, "2", tab_voice)
     # Remove lyrics from the duplicated tablature notes if any ever appear on the bass staff.
     remove_children(tab_item, "lyric")
     pitch = child(tab_item, "pitch")
@@ -317,8 +330,18 @@ def staff1_source_items(measure: ET.Element) -> list[ET.Element]:
     return source
 
 
-def converted_staff2_items(measure: ET.Element, octave_change: int, issues: list[ConversionIssue], stats: dict[str, object]) -> list[ET.Element]:
-    return [convert_source_item(item, measure, octave_change, issues, stats) for item in staff1_source_items(measure)]
+def converted_staff2_items(
+    measure: ET.Element,
+    octave_change: int,
+    issues: list[ConversionIssue],
+    stats: dict[str, object],
+) -> list[ET.Element]:
+    voice_map: dict[str, str] = {}
+    return [
+        convert_source_item(item, measure, octave_change, issues, stats, voice_map)
+        for item in staff1_source_items(measure)
+    ]
+
 
 def populate_tab_staff(part: ET.Element, octave_change: int) -> tuple[int, list[ConversionIssue], dict[str, object]]:
     issues: list[ConversionIssue] = []
@@ -347,7 +370,111 @@ def populate_tab_staff(part: ET.Element, octave_change: int) -> tuple[int, list[
     return int(stats["note_count"]), issues, stats
 
 
-def write_report(messages: list[str], part: ET.Element | None, note_count: int, issues: list[ConversionIssue], stats: dict[str, object], octave_change: int) -> None:
+def note_duration(note: ET.Element) -> int:
+    return int(child_text(note, "duration", "0") or "0")
+
+
+def move_duration(item: ET.Element) -> int:
+    return int(child_text(item, "duration", "0") or "0")
+
+
+def measure_duration_name(duration: int, divisions: int, beat_type: int) -> str:
+    if divisions <= 0 or beat_type <= 0:
+        return f"{duration} divisions"
+    beat_unit = divisions * 4
+    numerator = duration * beat_type
+    if numerator % beat_unit == 0:
+        return f"{numerator // beat_unit}/{beat_type}"
+    from math import gcd
+
+    denominator = beat_unit
+    divisor = gcd(numerator, denominator)
+    return f"{numerator // divisor}/{denominator // divisor}"
+
+
+def expected_measure_duration(measure: ET.Element, state: dict[str, int]) -> int:
+    for attrs in measure_attributes(measure):
+        divisions = child_text(attrs, "divisions")
+        if divisions:
+            state["divisions"] = int(divisions)
+        time = child(attrs, "time")
+        if time is not None:
+            beats = child_text(time, "beats")
+            beat_type = child_text(time, "beat-type")
+            if beats and beat_type:
+                state["beats"] = int(beats)
+                state["beat_type"] = int(beat_type)
+    return state["divisions"] * state["beats"] * 4 // state["beat_type"]
+
+
+def validate_tab_staff_durations(part: ET.Element) -> tuple[list[str], list[str]]:
+    """Validate that every generated TAB voice fills exactly one measure.
+
+    MusicXML backup/forward elements move the measure cursor, while a <chord>
+    note shares the previous note's onset and therefore must not consume extra
+    time.  The generated TAB staff uses separate voices when the source notation
+    staff uses separate voices, so each TAB voice must independently end at the
+    full bar duration and no TAB event may extend beyond the bar.
+    """
+    state = {"divisions": 1, "beats": 4, "beat_type": 4}
+    invalid: list[str] = []
+    report_lines: list[str] = []
+    for measure in children(part, "measure"):
+        expected = expected_measure_duration(measure, state)
+        cursor = 0
+        voice_ends: dict[str, int] = {}
+        overshot = False
+        measure_number = measure.attrib.get("number", "?")
+        for item in measure:
+            tag = local_name(item.tag)
+            if tag == "backup":
+                cursor -= move_duration(item)
+            elif tag == "forward":
+                cursor += move_duration(item)
+            elif tag == "note":
+                if note_staff(item) != "2":
+                    if not note_is_chord_continuation(item):
+                        cursor += note_duration(item)
+                    continue
+                voice = note_voice(item)
+                duration = note_duration(item)
+                event_end = cursor if note_is_chord_continuation(item) else cursor + duration
+                voice_ends[voice] = max(voice_ends.get(voice, 0), event_end)
+                if event_end > expected:
+                    overshot = True
+                if not note_is_chord_continuation(item):
+                    cursor += duration
+        bad_voices = {voice: end for voice, end in voice_ends.items() if end != expected}
+        final_duration = measure_duration_name(expected, state["divisions"], state["beat_type"])
+        voice_summary = ", ".join(
+            f"voice {voice}={measure_duration_name(end, state['divisions'], state['beat_type'])}"
+            for voice, end in sorted(voice_ends.items())
+        )
+        if not voice_summary:
+            voice_summary = "no TAB voices"
+            bad_voices = {"none": 0}
+        report_lines.append(f"- Measure {measure_number}: {final_duration} ({voice_summary})")
+        if overshot or bad_voices:
+            invalid.append(
+                f"measure {measure_number}: expected {final_duration}; "
+                + ", ".join(
+                    f"voice {voice} found "
+                    f"{measure_duration_name(end, state['divisions'], state['beat_type'])}"
+                    for voice, end in sorted(bad_voices.items())
+                )
+            )
+    return invalid, report_lines
+
+
+def write_report(
+    messages: list[str],
+    part: ET.Element | None,
+    note_count: int,
+    issues: list[ConversionIssue],
+    stats: dict[str, object],
+    octave_change: int,
+    duration_report: list[str] | None = None,
+) -> None:
     lines: list[str] = []
     lines.append("Bass tablature generation report")
     lines.append("=================================")
@@ -360,7 +487,10 @@ def write_report(messages: list[str], part: ET.Element | None, note_count: int, 
         lines.append("No score modifications were written because the tab staff could not be safely identified.")
     else:
         lines.append(f"Bass notation staff: part {part.attrib.get('id')} staff 1 (bass clef).")
-        lines.append(f"Bass tab staff: part {part.attrib.get('id')} staff 2 (TAB clef; previously full-measure rests only).")
+        lines.append(
+            f"Bass tab staff: part {part.attrib.get('id')} staff 2 "
+            "(score staff 6, TAB clef; previously full-measure rests only)."
+        )
         lines.append(f"Bass notes converted to tab: {note_count}")
         written_midis = stats.get("written_midis", [])
         sounding_midis = stats.get("sounding_midis", [])
@@ -388,6 +518,13 @@ def write_report(messages: list[str], part: ET.Element | None, note_count: int, 
         lines.append("- MusicXML technical string numbers are 1=G, 2=D, 3=A, 4=E for this 4-string bass.")
         lines.append("- Frets 0-12 were preferred; higher frets up to 24 would be used only if necessary.")
         lines.append("- Rhythm, note durations, ties, rests, voices, and playback pitches were copied from the notation staff to the tab staff.")
+        lines.append(
+            "- Source notation voices were mapped to distinct TAB voices so MusicXML backup elements reset between voices correctly."
+        )
+        if duration_report is not None:
+            lines.append("")
+            lines.append("Corrected staff-6 measure durations:")
+            lines.extend(duration_report)
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -403,10 +540,22 @@ def main() -> int:
         return 1
     octave_change = get_octave_change(part)
     note_count, issues, stats = populate_tab_staff(part, octave_change)
+    invalid_measures, duration_report = validate_tab_staff_durations(part)
+    if invalid_measures:
+        if OUTPUT.exists():
+            OUTPUT.unlink()
+        messages.extend(["Staff-6 duration validation failed before writing MusicXML.", *invalid_measures])
+        write_report(messages, part, note_count, issues, stats, octave_change, duration_report)
+        print("Staff-6 duration validation failed; no MusicXML written.")
+        print("Invalid measures:")
+        for invalid in invalid_measures:
+            print(f"- {invalid}")
+        print(f"See {REPORT}")
+        return 1
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     ET.indent(tree, space="  ")
     tree.write(OUTPUT, encoding="utf-8", xml_declaration=True)
-    write_report(messages, part, note_count, issues, stats, octave_change)
+    write_report(messages, part, note_count, issues, stats, octave_change, duration_report)
     print(f"Wrote {OUTPUT}")
     print(f"Wrote {REPORT}")
     return 0
